@@ -98,7 +98,6 @@ if __name__ == "__main__":
     print("=" * 50)
     print("RUNNING BASIC TESTS")
     print("=" * 50)
-    
     test_container()
     test_cylinder()
     test_center_of_mass()
