@@ -7,10 +7,8 @@ def solve_instance_from_file(input_filepath, output_filepath,
                              mutation_rate=0.05, 
                              step_size=0.3, 
                              max_generations=500,
+                             use_local_search=True,
                              verbose=True):
-    """
-    Load instance from file, solve it, save solution
-    """
     if verbose:
         print(f"\nLoading instance: {input_filepath}")
     
@@ -28,7 +26,12 @@ def solve_instance_from_file(input_filepath, output_filepath,
         step_size=step_size
     )
     
-    best_solution = solver.solve(max_generations=max_generations, verbose=verbose)
+    best_solution = solver.solve(
+        max_generations=max_generations, 
+        verbose=verbose,
+        use_local_search=use_local_search,
+        local_search_method='hill_climbing'
+    )
     
     if best_solution is None:
         print(f"FAILED: No valid solution found for {input_filepath}")
@@ -44,7 +47,6 @@ def solve_instance_from_file(input_filepath, output_filepath,
         print(f"Solution saved to: {output_filepath}")
     
     return solver
-
 
 def solve_all_reference_instances():
     """
