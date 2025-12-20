@@ -1,0 +1,16 @@
+container 18 14 2500
+cylinder 2.5 150
+cylinder 2.0 120
+cylinder 2.0 120
+cylinder 2.0 120
+cylinder 1.8 100
+cylinder 1.8 100
+cylinder 1.5 80
+cylinder 1.5 80
+cylinder 1.5 80
+cylinder 1.5 80
+cylinder 1.2 60
+cylinder 1.2 60
+cylinder 1.0 50
+cylinder 1.0 50
+cylinder 1.0 50

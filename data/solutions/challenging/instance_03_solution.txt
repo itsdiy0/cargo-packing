@@ -1,0 +1,16 @@
+placement_order 2 9 8 0 1 7 6 3 4 5
+fitness 10735.51
+valid True
+center_of_mass 8.00 5.92
+packing_density 0.2373
+
+cylinder 0 9.60 4.40 4.00 300.00
+cylinder 1 6.35 6.75 3.50 250.00
+cylinder 2 4.70 3.90 3.00 200.00
+cylinder 3 9.05 8.25 2.50 150.00
+cylinder 4 11.80 8.40 2.00 100.00
+cylinder 5 4.20 8.60 2.00 100.00
+cylinder 6 10.75 6.95 1.50 80.00
+cylinder 7 11.95 5.95 1.50 80.00
+cylinder 8 7.50 2.90 1.00 50.00
+cylinder 9 6.50 2.90 1.00 50.00

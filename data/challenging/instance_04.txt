@@ -1,0 +1,14 @@
+# Very tight packing, Small container, many cylinders
+container 12 10 1500
+cylinder 2.5 140
+cylinder 2.2 120
+cylinder 2.0 100
+cylinder 2.0 100
+cylinder 1.8 90
+cylinder 1.8 90
+cylinder 1.5 75
+cylinder 1.5 75
+cylinder 1.2 60
+cylinder 1.0 50
+cylinder 1.0 50
+cylinder 1.0 50

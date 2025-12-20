@@ -1,0 +1,9 @@
+container 22 16 2000
+cylinder 3.5 250
+cylinder 3.0 200
+cylinder 2.5 150
+cylinder 2.5 150
+cylinder 2.0 100
+cylinder 2.0 100
+cylinder 1.5 80
+cylinder 1.5 80
