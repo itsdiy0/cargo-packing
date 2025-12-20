@@ -48,7 +48,6 @@ htmlcov/
 
 # Project specific
 *.log
-results/
 output/
 temp/
 ```
