@@ -25,7 +25,7 @@ class CargoPackingSolver:
         self.best_fitness = 0
         self.generation_history = []
     
-    def solve(self, max_generations=100, target_fitness=None, verbose=True):
+    def solve(self, max_generations=100, target_fitness=None, verbose=True,use_local_search=False, local_search_method='hill_climbing'):
         # Main GA loop
         for gen in range(max_generations):
             self.population.calculate_fitness()
@@ -49,7 +49,30 @@ class CargoPackingSolver:
                 if verbose:
                     print(f"\nTarget fitness {target_fitness} reached at generation {gen}")
                 break
+        # Apply local search if specified
+        if use_local_search and self.best_solution:
+            if verbose:
+                print(f"\nApplying local search ({local_search_method})...")
         
+            from algorithms import hill_climbing, simulated_annealing
+        
+            if local_search_method == 'hill_climbing':
+                self.best_solution = hill_climbing(
+                    self.best_solution, 
+                    self.cylinders, 
+                    self.container, 
+                    self.placer, 
+                    verbose=verbose
+                )
+            elif local_search_method == 'simulated_annealing':
+                self.best_solution = simulated_annealing(
+                    self.best_solution,
+                    self.cylinders,
+                    self.container,
+                    self.placer,
+                    verbose=verbose
+                )
+            self.best_fitness = self.best_solution.fitness
         return self.best_solution
     
     def get_solution_details(self, dna):
