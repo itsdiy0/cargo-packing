@@ -3,6 +3,7 @@ import axios from 'axios'
 import './App.css'
 import type { Container, Cylinder, Solution, ProgressUpdate, Algorithm } from './types'
 import SolutionVisualization from './components/SolutionVisualization'
+import PresetSelector from './components/PresetSelector'
 
 const API_URL = 'http://127.0.0.1:5000/api'
 
@@ -12,6 +13,27 @@ function App() {
     depth: 15,
     max_weight: 1000
   })
+  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+
+  const loadPreset = (presetContainer: Container, presetCylinders: Cylinder[], name: string) => {
+    setContainer(presetContainer)
+    setCylinders(presetCylinders)
+    setSolution(null)
+    setLogs([])
+    setSelectedPreset(name)
+    addLog(`Loaded preset: ${name}`)
+  }
+
+  const handleFileUpload = (fileContainer: Container, fileCylinders: Cylinder[]) => {
+    setContainer(fileContainer)
+    setCylinders(fileCylinders)
+    setSolution(null)
+    setLogs([])
+    setSelectedPreset('custom')
+    addLog(`Loaded instance from file`)
+    addLog(`Container: ${fileContainer.width}m × ${fileContainer.depth}m`)
+    addLog(`Cylinders: ${fileCylinders.length}`)
+  }
 
   const [cylinders, setCylinders] = useState<Cylinder[]>([
     { diameter: 2.0, weight: 100 },
@@ -88,8 +110,8 @@ function App() {
       <div className="top-section">
         <div className="algorithm-panel">
           <h2>Algorithm Selection</h2>
-          <select 
-            value={algorithm} 
+          <select
+            value={algorithm}
             onChange={(e) => setAlgorithm(e.target.value as Algorithm)}
             className="algorithm-select"
           >
@@ -97,6 +119,12 @@ function App() {
             <option value="greedy">Greedy Algorithm</option>
             <option value="random">Random Search</option>
           </select>
+
+          <PresetSelector
+            selectedPreset={selectedPreset}
+            onLoadPreset={loadPreset}
+            onFileUpload={handleFileUpload}
+          />
         </div>
 
         <div className="start-panel">
