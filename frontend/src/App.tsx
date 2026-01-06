@@ -13,27 +13,6 @@ function App() {
     depth: 15,
     max_weight: 1000
   })
-  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
-
-  const loadPreset = (presetContainer: Container, presetCylinders: Cylinder[], name: string) => {
-    setContainer(presetContainer)
-    setCylinders(presetCylinders)
-    setSolution(null)
-    setLogs([])
-    setSelectedPreset(name)
-    addLog(`Loaded preset: ${name}`)
-  }
-
-  const handleFileUpload = (fileContainer: Container, fileCylinders: Cylinder[]) => {
-    setContainer(fileContainer)
-    setCylinders(fileCylinders)
-    setSolution(null)
-    setLogs([])
-    setSelectedPreset('custom')
-    addLog(`Loaded instance from file`)
-    addLog(`Container: ${fileContainer.width}m × ${fileContainer.depth}m`)
-    addLog(`Cylinders: ${fileCylinders.length}`)
-  }
 
   const [cylinders, setCylinders] = useState<Cylinder[]>([
     { diameter: 2.0, weight: 100 },
@@ -45,6 +24,8 @@ function App() {
   const [solving, setSolving] = useState(false)
   const [solution, setSolution] = useState<Solution | null>(null)
   const [logs, setLogs] = useState<string[]>([])
+  const [progress, setProgress] = useState<ProgressUpdate | null>(null)
+  const [selectedPreset, setSelectedPreset] = useState<string>('custom')
 
   const addCylinder = () => {
     setCylinders([...cylinders, { diameter: 2.0, weight: 100 }])
@@ -68,11 +49,44 @@ function App() {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`])
   }
 
+  const loadPreset = (presetContainer: Container, presetCylinders: Cylinder[], name: string) => {
+    setContainer(presetContainer)
+    setCylinders(presetCylinders)
+    setSolution(null)
+    setLogs([])
+    setProgress(null)
+    setSelectedPreset(name)
+    addLog(`Loaded preset: ${name}`)
+  }
+
+  const handleFileUpload = (fileContainer: Container, fileCylinders: Cylinder[]) => {
+    setContainer(fileContainer)
+    setCylinders(fileCylinders)
+    setSolution(null)
+    setLogs([])
+    setProgress(null)
+    setSelectedPreset('custom')
+    addLog(`Loaded instance from file`)
+    addLog(`Container: ${fileContainer.width}m × ${fileContainer.depth}m`)
+    addLog(`Cylinders: ${fileCylinders.length}`)
+  }
+
   const solveProblem = async () => {
+    if (algorithm === 'genetic') {
+      solveWithStreaming()
+    } else {
+      solveStandard()
+    }
+  }
+
+  const solveStandard = async () => {
     setSolving(true)
     setSolution(null)
     setLogs([])
+    setProgress(null)
     addLog(`Starting ${algorithm} algorithm...`)
+    addLog(`Container: ${container.width}m × ${container.depth}m`)
+    addLog(`Cylinders: ${cylinders.length}`)
 
     try {
       const response = await axios.post(`${API_URL}/solve`, {
@@ -99,8 +113,124 @@ function App() {
     } catch (error) {
       console.error('Error solving:', error)
       addLog('ERROR: Failed to solve problem')
-      alert('Failed to solve problem. Make sure Flask server is running.')
     } finally {
+      setSolving(false)
+    }
+  }
+
+  const solveWithStreaming = async () => {
+    setSolving(true)
+    setSolution(null)
+    setProgress(null)
+    setLogs([])
+    addLog('Starting Genetic Algorithm with live visualization...')
+    addLog(`Container: ${container.width}m × ${container.depth}m, Max: ${container.max_weight}kg`)
+    addLog(`Cylinders: ${cylinders.length}`)
+
+    try {
+      const response = await fetch(`${API_URL}/solve-stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          container,
+          cylinders,
+          params: {
+            population_size: 100,
+            mutation_rate: 0.05,
+            step_size: 0.3,
+            max_generations: 200,
+            animation_delay: 0.05
+          }
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      if (!response.body) {
+        throw new Error('No response body')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      const processChunk = async (): Promise<void> => {
+        const { done, value } = await reader.read()
+        
+        if (done) {
+          setSolving(false)
+          addLog('Evolution complete!')
+          return
+        }
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.type === 'start') {
+                addLog(`Evolution starting: ${data.total_generations} generations`)
+              }
+              else if (data.type === 'progress') {
+                setProgress({
+                  generation: data.generation,
+                  best_fitness: data.best_fitness,
+                  avg_fitness: data.avg_fitness,
+                  worst_fitness: data.worst_fitness
+                })
+
+                if (data.solution && data.solution.cylinders && data.solution.cylinders.length > 0) {
+                  setSolution({
+                    algorithm: `Genetic Algorithm (Gen ${data.generation})`,
+                    solution: data.solution.placement_order,
+                    fitness: data.best_fitness,
+                    details: {
+                      valid: data.best_fitness > 0,
+                      center_of_mass: data.solution.center_of_mass,
+                      packing_density: data.solution.packing_density,
+                      cylinders: data.solution.cylinders
+                    }
+                  })
+                }
+
+                if (data.generation % 50 === 0) {
+                  addLog(`Gen ${data.generation}: best=${data.best_fitness.toFixed(2)}, avg=${data.avg_fitness.toFixed(2)}`)
+                }
+              }
+              else if (data.type === 'complete') {
+                setSolution({
+                  algorithm: 'Genetic Algorithm (Final)',
+                  solution: data.solution.placement_order,
+                  fitness: data.solution.fitness,
+                  details: data.solution
+                })
+                addLog(`Final solution! Fitness: ${data.solution.fitness.toFixed(2)}`)
+                addLog(`Valid: ${data.solution.valid ? 'Yes' : 'No'}`)
+                addLog(`Packing density: ${(data.solution.packing_density * 100).toFixed(2)}%`)
+                setSolving(false)
+                return
+              }
+            } catch (e) {
+              console.error('Error parsing SSE:', e)
+            }
+          }
+        }
+
+        return processChunk()
+      }
+
+      await processChunk()
+    } catch (error) {
+      console.error('Stream error:', error)
+      addLog('ERROR: Streaming failed')
       setSolving(false)
     }
   }
@@ -176,7 +306,14 @@ function App() {
 
       <div className="middle-section">
         <div className="visualizer-panel">
-          <h2>Visualiser</h2>
+          <div className="visualizer-header">
+            <h2>Visualiser</h2>
+            {progress && (
+              <div className="generation-badge">
+                Generation {progress.generation}/200 | Fitness: {progress.best_fitness.toFixed(2)}
+              </div>
+            )}
+          </div>
           <div className="visualizer-content">
             {solution ? (
               <SolutionVisualization
