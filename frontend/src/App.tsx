@@ -26,12 +26,23 @@ function App() {
   const [logs, setLogs] = useState<string[]>([])
   const [progress, setProgress] = useState<ProgressUpdate | null>(null)
   const [selectedPreset, setSelectedPreset] = useState<string>('custom')
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
+
+  const [advancedSettings, setAdvancedSettings] = useState({
+    population_size: 100,
+    mutation_rate: 0.05,
+    max_generations: 200,
+    step_size: 0.3,
+    animation_delay: 0.02,
+    use_local_search: true
+  })
 
   const addCylinder = () => {
     setCylinders([...cylinders, { diameter: 2.0, weight: 100 }])
   }
 
   const removeCylinder = (index: number) => {
+    if (cylinders.length <= 1) return
     setCylinders(cylinders.filter((_, i) => i !== index))
   }
 
@@ -43,6 +54,10 @@ function App() {
 
   const updateContainer = (field: keyof Container, value: string) => {
     setContainer({ ...container, [field]: parseFloat(value) || 0 })
+  }
+
+  const updateAdvancedSetting = (field: keyof typeof advancedSettings, value: number | boolean) => {
+    setAdvancedSettings({ ...advancedSettings, [field]: value })
   }
 
   const addLog = (message: string) => {
@@ -71,6 +86,15 @@ function App() {
     addLog(`Cylinders: ${fileCylinders.length}`)
   }
 
+  const stopSolving = () => {
+    if (abortController) {
+      abortController.abort()
+      setAbortController(null)
+    }
+    setSolving(false)
+    addLog('Algorithm stopped by user')
+  }
+
   const solveProblem = async () => {
     if (algorithm === 'genetic') {
       solveWithStreaming()
@@ -94,13 +118,9 @@ function App() {
         cylinders,
         algorithm,
         params: {
-          population_size: 100,
-          mutation_rate: 0.05,
-          step_size: 0.3,
-          max_generations: 200,
+          ...advancedSettings,
           strategy: 'largest_first',
-          num_trials: 1000,
-          use_local_search: true
+          num_trials: 1000
         }
       })
 
@@ -123,9 +143,14 @@ function App() {
     setSolution(null)
     setProgress(null)
     setLogs([])
+    
+    const controller = new AbortController()
+    setAbortController(controller)
+    
     addLog('Starting Genetic Algorithm with live visualization...')
     addLog(`Container: ${container.width}m × ${container.depth}m, Max: ${container.max_weight}kg`)
     addLog(`Cylinders: ${cylinders.length}`)
+    addLog(`Population: ${advancedSettings.population_size}, Mutation: ${advancedSettings.mutation_rate}, Generations: ${advancedSettings.max_generations}`)
 
     try {
       const response = await fetch(`${API_URL}/solve-stream`, {
@@ -136,14 +161,9 @@ function App() {
         body: JSON.stringify({
           container,
           cylinders,
-          params: {
-            population_size: 100,
-            mutation_rate: 0.05,
-            step_size: 0.3,
-            max_generations: 200,
-            animation_delay: 0.05
-          }
-        })
+          params: advancedSettings
+        }),
+        signal: controller.signal
       })
 
       if (!response.ok) {
@@ -163,6 +183,7 @@ function App() {
         
         if (done) {
           setSolving(false)
+          setAbortController(null)
           addLog('Evolution complete!')
           return
         }
@@ -216,6 +237,7 @@ function App() {
                 addLog(`Valid: ${data.solution.valid ? 'Yes' : 'No'}`)
                 addLog(`Packing density: ${(data.solution.packing_density * 100).toFixed(2)}%`)
                 setSolving(false)
+                setAbortController(null)
                 return
               }
             } catch (e) {
@@ -228,17 +250,22 @@ function App() {
       }
 
       await processChunk()
-    } catch (error) {
-      console.error('Stream error:', error)
-      addLog('ERROR: Streaming failed')
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        addLog('Algorithm stopped by user')
+      } else {
+        console.error('Stream error:', error)
+        addLog('ERROR: Streaming failed')
+      }
       setSolving(false)
+      setAbortController(null)
     }
   }
 
   return (
     <div className="app">
       <div className="top-section">
-        <div className="algorithm-panel">
+        <div className="config-section">
           <h2>Algorithm Selection</h2>
           <select
             value={algorithm}
@@ -250,27 +277,19 @@ function App() {
             <option value="random">Random Search</option>
           </select>
 
-          <PresetSelector
-            selectedPreset={selectedPreset}
-            onLoadPreset={loadPreset}
-            onFileUpload={handleFileUpload}
-          />
+          <div className="preset-group">
+            <PresetSelector
+              selectedPreset={selectedPreset}
+              onLoadPreset={loadPreset}
+              onFileUpload={handleFileUpload}
+            />
+          </div>
         </div>
 
-        <div className="start-panel">
-          <button
-            onClick={solveProblem}
-            disabled={solving || cylinders.length === 0}
-            className="start-button"
-          >
-            {solving ? 'Solving...' : 'Start'}
-          </button>
-        </div>
-
-        <div className="container-config-panel">
+        <div className="config-section">
           <h2>Container Configuration</h2>
-          <div className="config-grid">
-            <div className="config-item">
+          <div className="inline-fields">
+            <div className="field">
               <label>Width (m)</label>
               <input
                 type="number"
@@ -280,7 +299,7 @@ function App() {
                 min="1"
               />
             </div>
-            <div className="config-item">
+            <div className="field">
               <label>Depth (m)</label>
               <input
                 type="number"
@@ -290,7 +309,7 @@ function App() {
                 min="1"
               />
             </div>
-            <div className="config-item">
+            <div className="field">
               <label>Max Weight (kg)</label>
               <input
                 type="number"
@@ -301,7 +320,83 @@ function App() {
               />
             </div>
           </div>
+          <h2>Advanced Settings</h2>
+          <div className="inline-fields">
+            <div className="field">
+              <label>Population</label>
+              <input
+                type="number"
+                value={advancedSettings.population_size}
+                onChange={(e) => updateAdvancedSetting('population_size', parseInt(e.target.value) || 50)}
+                min="10"
+                max="500"
+              />
+            </div>
+            <div className="field">
+              <label>Mutation Rate</label>
+              <input
+                type="number"
+                value={advancedSettings.mutation_rate}
+                onChange={(e) => updateAdvancedSetting('mutation_rate', parseFloat(e.target.value) || 0.01)}
+                min="0.01"
+                max="0.5"
+                step="0.01"
+              />
+            </div>
+            <div className="field">
+              <label>Generations</label>
+              <input
+                type="number"
+                value={advancedSettings.max_generations}
+                onChange={(e) => updateAdvancedSetting('max_generations', parseInt(e.target.value) || 100)}
+                min="50"
+                max="1000"
+                step="50"
+              />
+            </div>
+          </div>
         </div>
+
+
+
+        <div className="config-section controls-section">     
+          <button
+            onClick={solveProblem}
+            disabled={solving || cylinders.length === 0}
+            className="start-button"
+          >
+            {solving ? 'Running...' : 'Start'}
+          </button>
+          <button
+            onClick={stopSolving}
+            disabled={!solving}
+            className="stop-button"
+          >
+            Stop
+          </button>
+        </div>
+        <div className="config-section">
+          <h2>Results</h2>
+              <div className="solution-summary">
+                <div className="summary-item">
+                  <strong>Placement Order:</strong> {solution && solution.solution.join(' → ')}
+                </div>
+                <div className="summary-item">
+                  <strong>Fitness:</strong> {solution && solution.fitness.toFixed(2)}
+                </div>
+                <div className="summary-item">
+                  <strong>Valid:</strong> {solution && solution.details.valid ? '✓ Yes' : '✗ No'}
+                </div>
+                <div className="summary-item">
+                  <strong>Packing Density:</strong> {solution && (solution.details.packing_density * 100).toFixed(2)}%
+                </div>
+                <div className="summary-item">
+                  <strong>Center of Mass:</strong> {solution && `${solution.details.center_of_mass[0].toFixed(2)}, ${solution.details.center_of_mass[1].toFixed(2)}`}
+                </div>
+              </div>
+
+        </div>
+
       </div>
 
       <div className="middle-section">
@@ -310,7 +405,7 @@ function App() {
             <h2>Visualiser</h2>
             {progress && (
               <div className="generation-badge">
-                Generation {progress.generation}/200 | Fitness: {progress.best_fitness.toFixed(2)}
+                Generation {progress.generation}/{advancedSettings.max_generations} | Fitness: {progress.best_fitness.toFixed(2)}
               </div>
             )}
           </div>
@@ -379,7 +474,7 @@ function App() {
 
       <div className="bottom-section">
         <div className="logs-panel">
-          <h2>Results / Logs</h2>
+          <h2>Logs</h2>
           <div className="logs-content">
             {logs.length === 0 ? (
               <p className="logs-placeholder">Logs will appear here...</p>
@@ -388,25 +483,7 @@ function App() {
                 <div key={idx} className="log-entry">{log}</div>
               ))
             )}
-            {solution && (
-              <div className="solution-summary">
-                <div className="summary-item">
-                  <strong>Placement Order:</strong> {solution.solution.join(' → ')}
-                </div>
-                <div className="summary-item">
-                  <strong>Fitness:</strong> {solution.fitness.toFixed(2)}
-                </div>
-                <div className="summary-item">
-                  <strong>Valid:</strong> {solution.details.valid ? '✓ Yes' : '✗ No'}
-                </div>
-                <div className="summary-item">
-                  <strong>Packing Density:</strong> {(solution.details.packing_density * 100).toFixed(2)}%
-                </div>
-                <div className="summary-item">
-                  <strong>Center of Mass:</strong> ({solution.details.center_of_mass[0].toFixed(2)}, {solution.details.center_of_mass[1].toFixed(2)})
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
