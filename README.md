@@ -1,12 +1,6 @@
-# Cargo Container Loading - Genetic Algorithm Solution
+# Cargo Container Loading
 
 Evolutionary algorithm implementation for optimal cylinder packing in rectangular cargo containers.
-
-**Module:** KV6018 - Evolutionary Computation  
-**Student ID:** 22031856  
-**Submission Date:** January 15, 2026
-
----
 
 ## Problem Description
 
