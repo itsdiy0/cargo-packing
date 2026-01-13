@@ -66,7 +66,7 @@ Compares GA, Greedy, and Random Search performance across test instances.
 
 An interactive web interface is provided for real-time visualization and algorithm comparison.
 
-![webapp](https://ibb.co/S4nV4Z70)
+![webapp]([https://ibb.co/S4nV4Z70](https://i.ibb.co/5g8sgJxv/Screenshot-2026-01-13-at-15-25-00.png))
 
 ### Running the Web App
 
