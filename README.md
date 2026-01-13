@@ -1,4 +1,4 @@
-# Cargo Container Loading
+# Cargo Container Loading Problem
 
 Evolutionary algorithm implementation for optimal cylinder packing in rectangular cargo containers.
 
@@ -66,7 +66,7 @@ Compares GA, Greedy, and Random Search performance across test instances.
 
 An interactive web interface is provided for real-time visualization and algorithm comparison.
 
-![webapp]([https://ibb.co/S4nV4Z70](https://i.ibb.co/5g8sgJxv/Screenshot-2026-01-13-at-15-25-00.png))
+<img width="1891" height="1108" alt="Screenshot 2026-01-13 at 15 25 00" src="https://github.com/user-attachments/assets/2b1f4860-8f82-4e07-86a9-362bcb738f26" />
 
 ### Running the Web App
 
